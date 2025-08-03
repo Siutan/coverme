@@ -202,6 +202,8 @@ final class WallpaperManager: ObservableObject {
             return WallpaperStyleRenderer.createCollageWallpaper(image, previousImages: previousImages, targetSize: screenSize)
         case .minimalistArt:
             return WallpaperStyleRenderer.createMinimalistWallpaper(image, trackName: track.name, artistName: track.artist, targetSize: screenSize)
+        case .pixelatedRetro:
+            return WallpaperStyleRenderer.createPixelatedRetroWallpaper(image, targetSize: screenSize)
         }
     }
     

@@ -41,6 +41,7 @@ public enum WallpaperStyle: String, CaseIterable, Codable {
     case gradientFromAlbumColors = "gradientFromAlbumColors"
     case collageEffect = "collageEffect"
     case minimalistArt = "minimalistArt"
+    case pixelatedRetro = "pixelatedRetro"
     
     public var displayName: String {
         switch self {
@@ -52,6 +53,7 @@ public enum WallpaperStyle: String, CaseIterable, Codable {
         case .gradientFromAlbumColors: return "Gradient from Album Colors"
         case .collageEffect: return "Collage Effect with Previous Tracks"
         case .minimalistArt: return "Minimalist Art Mode"
+        case .pixelatedRetro: return "Pixelated Retro Mode"
         }
     }
 }

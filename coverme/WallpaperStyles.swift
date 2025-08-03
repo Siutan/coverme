@@ -325,6 +325,46 @@ class WallpaperStyleRenderer {
         return newImage
     }
     
+    // MARK: - Pixelated Retro Mode
+    static func createPixelatedRetroWallpaper(_ image: NSImage, targetSize: NSSize) -> NSImage {
+        let newImage = NSImage(size: targetSize)
+        newImage.lockFocus()
+        
+        // Step 1: Extract dominant colors for retro gradient background
+        let dominantColors = extractDominantColors(from: image)
+        
+        // Step 2: Create retro-style gradient background with multiple color stops
+        drawRetroGradientBackground(colors: dominantColors, in: NSRect(origin: .zero, size: targetSize))
+        
+        // Step 3: Create pixelated version of album art
+        let pixelatedImage = createPixelatedImage(image, pixelSize: 8)
+        
+        // Step 4: Calculate album art size (larger for retro aesthetic)
+        let artMaxWidth = targetSize.width * 0.4
+        let artMaxHeight = targetSize.height * 0.6
+        let artSize = calculateFitSize(for: pixelatedImage.size, in: NSSize(width: artMaxWidth, height: artMaxHeight))
+        
+        // Step 5: Position album art in center
+        let artRect = NSRect(
+            x: (targetSize.width - artSize.width) / 2,
+            y: (targetSize.height - artSize.height) / 2,
+            width: artSize.width,
+            height: artSize.height
+        )
+        
+        // Step 6: Draw retro-style border/frame around the pixelated art
+        drawRetroFrame(in: artRect, borderWidth: 8)
+        
+        // Step 7: Draw the pixelated album art
+        drawRoundedImage(pixelatedImage, in: artRect, cornerRadius: 4)
+        
+        // Step 8: Add retro scanline effect overlay
+        drawScanlineEffect(in: NSRect(origin: .zero, size: targetSize))
+        
+        newImage.unlockFocus()
+        return newImage
+    }
+    
     // MARK: - Minimalist Art Mode
     static func createMinimalistWallpaper(_ image: NSImage, trackName: String, artistName: String, targetSize: NSSize) -> NSImage {
         let newImage = NSImage(size: targetSize)
@@ -808,5 +848,155 @@ class WallpaperStyleRenderer {
         
         // Return white text for dark backgrounds, black text for light backgrounds
         return luminance < 0.5 ? NSColor.white : NSColor.black
+    }
+    
+    // MARK: - Pixelated Retro Helper Methods
+    
+    private static func createPixelatedImage(_ image: NSImage, pixelSize: Int) -> NSImage {
+        guard let tiffData = image.tiffRepresentation,
+              let imageRep = NSBitmapImageRep(data: tiffData),
+              let cgImage = imageRep.cgImage else {
+            return image
+        }
+        
+        let originalWidth = cgImage.width
+        let originalHeight = cgImage.height
+        
+        // Calculate pixelated dimensions
+        let pixelatedWidth = max(1, originalWidth / pixelSize)
+        let pixelatedHeight = max(1, originalHeight / pixelSize)
+        
+        // Create small pixelated version
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        guard let context = CGContext(data: nil,
+                                    width: pixelatedWidth,
+                                    height: pixelatedHeight,
+                                    bitsPerComponent: 8,
+                                    bytesPerRow: 0,
+                                    space: colorSpace,
+                                    bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else {
+            return image
+        }
+        
+        // Draw scaled down image (pixelated)
+        context.interpolationQuality = .none // Disable smoothing for pixelated effect
+        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: pixelatedWidth, height: pixelatedHeight))
+        
+        guard let pixelatedCGImage = context.makeImage() else {
+            return image
+        }
+        
+        // Scale back up to original size with no interpolation
+        guard let upscaleContext = CGContext(data: nil,
+                                           width: originalWidth,
+                                           height: originalHeight,
+                                           bitsPerComponent: 8,
+                                           bytesPerRow: 0,
+                                           space: colorSpace,
+                                           bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else {
+            return NSImage(cgImage: pixelatedCGImage, size: image.size)
+        }
+        
+        upscaleContext.interpolationQuality = .none // Keep pixelated look
+        upscaleContext.draw(pixelatedCGImage, in: CGRect(x: 0, y: 0, width: originalWidth, height: originalHeight))
+        
+        guard let finalCGImage = upscaleContext.makeImage() else {
+            return NSImage(cgImage: pixelatedCGImage, size: image.size)
+        }
+        
+        return NSImage(cgImage: finalCGImage, size: image.size)
+    }
+    
+    private static func drawRetroGradientBackground(colors: [NSColor], in rect: NSRect) {
+        guard colors.count >= 2 else { return }
+        
+        // Create a retro-style radial gradient with enhanced colors
+        let enhancedColors = colors.map { color -> NSColor in
+            var hue: CGFloat = 0
+            var saturation: CGFloat = 0
+            var brightness: CGFloat = 0
+            var alpha: CGFloat = 0
+            
+            color.getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha)
+            
+            // Enhance saturation and adjust brightness for retro feel
+            let retroSaturation = min(1.0, saturation * 1.3)
+            let retroBrightness = max(0.3, min(0.8, brightness * 0.9))
+            
+            return NSColor(hue: hue, saturation: retroSaturation, brightness: retroBrightness, alpha: alpha)
+        }
+        
+        // Create multi-stop gradient for retro effect
+        var gradientColors: [NSColor] = []
+        gradientColors.append(enhancedColors[0])
+        gradientColors.append(enhancedColors[1])
+        
+        // Add a third color for more retro feel
+        if enhancedColors.count > 2 {
+            gradientColors.append(enhancedColors[2])
+        } else {
+            // Create a complementary color
+            var hue: CGFloat = 0
+            var saturation: CGFloat = 0
+            var brightness: CGFloat = 0
+            var alpha: CGFloat = 0
+            
+            enhancedColors[0].getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha)
+            let complementaryHue = fmod(hue + 0.5, 1.0)
+            let complementaryColor = NSColor(hue: complementaryHue, saturation: saturation * 0.8, brightness: brightness * 1.1, alpha: alpha)
+            gradientColors.append(complementaryColor)
+        }
+        
+        let gradient = NSGradient(colors: gradientColors)
+        let centerPoint = NSPoint(x: rect.midX, y: rect.midY)
+        let radius = max(rect.width, rect.height) * 0.7
+        
+        gradient?.draw(fromCenter: centerPoint, radius: 0, toCenter: centerPoint, radius: radius, options: [])
+    }
+    
+    private static func drawRetroFrame(in rect: NSRect, borderWidth: CGFloat) {
+        // Draw outer retro-style frame with gradient border
+        let outerRect = rect.insetBy(dx: -borderWidth, dy: -borderWidth)
+        
+        // Create retro border colors (bright neon-like)
+        let borderColor1 = NSColor(red: 1.0, green: 0.2, blue: 0.8, alpha: 0.8) // Hot pink
+        let borderColor2 = NSColor(red: 0.2, green: 0.8, blue: 1.0, alpha: 0.8) // Cyan
+        
+        let borderGradient = NSGradient(colors: [borderColor1, borderColor2])
+        let borderPath = NSBezierPath(roundedRect: outerRect, xRadius: 8, yRadius: 8)
+        
+        borderGradient?.draw(in: borderPath, angle: 45)
+        
+        // Draw inner black border for contrast
+        let innerBorderRect = rect.insetBy(dx: -2, dy: -2)
+        let innerBorderPath = NSBezierPath(roundedRect: innerBorderRect, xRadius: 6, yRadius: 6)
+        NSColor.black.withAlphaComponent(0.8).setFill()
+        innerBorderPath.fill()
+    }
+    
+    private static func drawScanlineEffect(in rect: NSRect) {
+        // Draw horizontal scanlines for retro CRT effect
+        let scanlineSpacing: CGFloat = 4
+        let scanlineAlpha: CGFloat = 0.1
+        
+        NSColor.black.withAlphaComponent(scanlineAlpha).setFill()
+        
+        var y: CGFloat = rect.minY
+        while y < rect.maxY {
+            let scanlineRect = NSRect(x: rect.minX, y: y, width: rect.width, height: 2)
+            scanlineRect.fill()
+            y += scanlineSpacing
+        }
+        
+        // Add subtle vertical scanlines too
+        let verticalSpacing: CGFloat = 8
+        NSColor.black.withAlphaComponent(scanlineAlpha * 0.5).setFill()
+        
+        var x: CGFloat = rect.minX
+        while x < rect.maxX {
+            let verticalLineRect = NSRect(x: x, y: rect.minY, width: 1, height: rect.height)
+            verticalLineRect.fill()
+            x += verticalSpacing
+        }
     }
 }
