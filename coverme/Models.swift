@@ -42,6 +42,8 @@ public enum WallpaperStyle: String, CaseIterable, Codable {
     case collageEffect = "collageEffect"
     case minimalistArt = "minimalistArt"
     case pixelatedRetro = "pixelatedRetro"
+    case polaroidAesthetic = "polaroidAesthetic"
+    case cdCaseVinyl = "cdCaseVinyl"
     
     public var displayName: String {
         switch self {
@@ -54,6 +56,8 @@ public enum WallpaperStyle: String, CaseIterable, Codable {
         case .collageEffect: return "Collage Effect with Previous Tracks"
         case .minimalistArt: return "Minimalist Art Mode"
         case .pixelatedRetro: return "Pixelated Retro Mode"
+        case .polaroidAesthetic: return "Polaroid Aesthetic"
+        case .cdCaseVinyl: return "CD Case / Vinyl Sleeve Look"
         }
     }
 }

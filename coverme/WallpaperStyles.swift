@@ -325,6 +325,171 @@ class WallpaperStyleRenderer {
         return newImage
     }
     
+    // MARK: - CD Case / Vinyl Sleeve Look
+    static func createCDCaseVinylWallpaper(_ image: NSImage, targetSize: NSSize) -> NSImage {
+        let canvas = NSImage(size: targetSize)
+        
+        canvas.lockFocus()
+        defer { canvas.unlockFocus() }
+        
+        // Draw textured black gradient background
+        drawTexturedBackground(size: targetSize)
+        
+        // Calculate CD case dimensions (standard CD case is roughly 5.5" x 4.9")
+        let caseWidth = min(targetSize.width * 0.4, targetSize.height * 0.5)
+        let caseHeight = caseWidth * 0.89 // CD case aspect ratio
+        
+        // Position case slightly off-center with perspective
+        let centerX = targetSize.width / 2 + 20
+        let centerY = targetSize.height / 2
+        let rotationAngle: CGFloat = -8.0 // Degrees for 3D perspective
+        
+        // Save graphics state for transformations
+        let context = NSGraphicsContext.current?.cgContext
+        context?.saveGState()
+        
+        // Apply perspective transformation
+        context?.translateBy(x: centerX, y: centerY)
+        context?.rotate(by: rotationAngle * .pi / 180)
+        context?.translateBy(x: -centerX, y: -centerY)
+        
+        // Draw shadow first
+        let shadowOffset = NSSize(width: 12, height: -12)
+        let shadowColor = NSColor.black.withAlphaComponent(0.4)
+        
+        let shadowRect = NSRect(
+            x: centerX - caseWidth / 2 + shadowOffset.width,
+            y: centerY - caseHeight / 2 + shadowOffset.height,
+            width: caseWidth,
+            height: caseHeight
+        )
+        
+        shadowColor.setFill()
+        let shadowPath = NSBezierPath(roundedRect: shadowRect, xRadius: 4, yRadius: 4)
+        shadowPath.fill()
+        
+        // Draw CD case back (dark plastic)
+        let caseRect = NSRect(
+            x: centerX - caseWidth / 2,
+            y: centerY - caseHeight / 2,
+            width: caseWidth,
+            height: caseHeight
+        )
+        
+        let caseColor = NSColor(red: 0.1, green: 0.1, blue: 0.1, alpha: 0.9)
+        caseColor.setFill()
+        let casePath = NSBezierPath(roundedRect: caseRect, xRadius: 4, yRadius: 4)
+        casePath.fill()
+        
+        // Draw album art (slightly inset)
+        let artInset: CGFloat = 8
+        let artRect = NSRect(
+            x: caseRect.minX + artInset,
+            y: caseRect.minY + artInset,
+            width: caseRect.width - (artInset * 2),
+            height: caseRect.height - (artInset * 2)
+        )
+        
+        // Apply album art with slight rounded corners
+        let artPath = NSBezierPath(roundedRect: artRect, xRadius: 2, yRadius: 2)
+        artPath.addClip()
+        image.draw(in: artRect, from: NSRect.zero, operation: .sourceOver, fraction: 1.0)
+        
+        // Apply plastic effect overlay
+        applyPlasticEffect(to: caseRect)
+        
+        // Add reflection glare
+        addReflectionGlare(to: caseRect)
+        
+        // Restore graphics state
+        context?.restoreGState()
+        
+        return canvas
+    }
+    
+    // MARK: - Polaroid Aesthetic
+    static func createPolaroidAestheticWallpaper(_ image: NSImage, trackName: String, targetSize: NSSize) -> NSImage {
+        let canvas = NSImage(size: targetSize)
+        
+        canvas.lockFocus()
+        defer { canvas.unlockFocus() }
+        
+        // Extract dominant color from album art
+        let dominantColors = extractDominantColors(from: image)
+        let dominantColor = dominantColors.first ?? NSColor.systemGray
+        
+        // Draw background with dominant color gradient
+        drawPolaroidBackground(dominantColor: dominantColor, size: targetSize)
+        
+        // Calculate Polaroid dimensions (roughly 4:3 aspect ratio with white border)
+        let polaroidWidth = min(targetSize.width * 0.6, targetSize.height * 0.7)
+        let polaroidHeight = polaroidWidth * 1.2 // Slightly taller for bottom text area
+        let photoWidth = polaroidWidth * 0.85
+        let photoHeight = photoWidth // Square photo area
+        
+        // Position with slight tilt and offset
+        let centerX = targetSize.width / 2
+        let centerY = targetSize.height / 2
+        let tiltAngle: CGFloat = -3.0 // Degrees
+        
+        // Save graphics state for rotation
+        let context = NSGraphicsContext.current?.cgContext
+        context?.saveGState()
+        
+        // Apply rotation around center
+        context?.translateBy(x: centerX, y: centerY)
+        context?.rotate(by: tiltAngle * .pi / 180)
+        context?.translateBy(x: -centerX, y: -centerY)
+        
+        // Draw shadow first
+        let shadowOffset = NSSize(width: 8, height: -8)
+        let shadowBlur: CGFloat = 15
+        let shadowColor = NSColor.black.withAlphaComponent(0.3)
+        
+        let polaroidRect = NSRect(
+            x: centerX - polaroidWidth / 2 + shadowOffset.width,
+            y: centerY - polaroidHeight / 2 + shadowOffset.height,
+            width: polaroidWidth,
+            height: polaroidHeight
+        )
+        
+        shadowColor.setFill()
+        let shadowPath = NSBezierPath(roundedRect: polaroidRect, xRadius: 8, yRadius: 8)
+        shadowPath.fill()
+        
+        // Draw white Polaroid frame
+        let frameRect = NSRect(
+            x: centerX - polaroidWidth / 2,
+            y: centerY - polaroidHeight / 2,
+            width: polaroidWidth,
+            height: polaroidHeight
+        )
+        
+        NSColor.white.setFill()
+        let framePath = NSBezierPath(roundedRect: frameRect, xRadius: 8, yRadius: 8)
+        framePath.fill()
+        
+        // Draw photo area
+        let photoRect = NSRect(
+            x: centerX - photoWidth / 2,
+            y: centerY - photoHeight / 2 + polaroidHeight * 0.1, // Offset up for text space
+            width: photoWidth,
+            height: photoHeight
+        )
+        
+        // Draw album art in photo area
+        image.draw(in: photoRect, from: NSRect.zero, operation: .sourceOver, fraction: 1.0)
+        
+        // Draw handwritten-style text
+        let textY = photoRect.minY - 40
+        drawHandwrittenText(trackName, at: NSPoint(x: centerX, y: textY), maxWidth: photoWidth)
+        
+        // Restore graphics state
+        context?.restoreGState()
+        
+        return canvas
+    }
+    
     // MARK: - Pixelated Retro Mode
     static func createPixelatedRetroWallpaper(_ image: NSImage, targetSize: NSSize) -> NSImage {
         let newImage = NSImage(size: targetSize)
@@ -998,5 +1163,134 @@ class WallpaperStyleRenderer {
             verticalLineRect.fill()
             x += verticalSpacing
         }
+    }
+    
+    // MARK: - CD Case / Vinyl Helper Methods
+    
+    private static func drawTexturedBackground(size: NSSize) {
+        // Create dark gradient background with texture
+        let darkColor1 = NSColor(red: 0.05, green: 0.05, blue: 0.05, alpha: 1.0)
+        let darkColor2 = NSColor(red: 0.15, green: 0.15, blue: 0.15, alpha: 1.0)
+        
+        let gradient = NSGradient(colors: [darkColor1, darkColor2])
+        let startPoint = NSPoint(x: 0, y: size.height)
+        let endPoint = NSPoint(x: size.width, y: 0)
+        
+        gradient?.draw(from: startPoint, to: endPoint, options: [])
+        
+        // Add subtle noise texture
+        addNoiseTexture(to: NSRect(origin: .zero, size: size))
+    }
+    
+    private static func addNoiseTexture(to rect: NSRect) {
+        // Create subtle noise pattern
+        let noiseColor = NSColor.white.withAlphaComponent(0.02)
+        noiseColor.setFill()
+        
+        // Draw random small rectangles for texture
+        for _ in 0..<200 {
+            let x = CGFloat.random(in: rect.minX...rect.maxX)
+            let y = CGFloat.random(in: rect.minY...rect.maxY)
+            let size = CGFloat.random(in: 1...3)
+            
+            let noiseRect = NSRect(x: x, y: y, width: size, height: size)
+            noiseRect.fill()
+        }
+    }
+    
+    private static func applyPlasticEffect(to rect: NSRect) {
+        // Create transparent plastic overlay effect
+        let plasticGradient = NSGradient(colors: [
+            NSColor.white.withAlphaComponent(0.1),
+            NSColor.clear,
+            NSColor.black.withAlphaComponent(0.05)
+        ])
+        
+        let startPoint = NSPoint(x: rect.minX, y: rect.maxY)
+        let endPoint = NSPoint(x: rect.maxX, y: rect.minY)
+        
+        plasticGradient?.draw(from: startPoint, to: endPoint, options: [])
+    }
+    
+    private static func addReflectionGlare(to rect: NSRect) {
+        // Add diagonal reflection glare
+        let glareWidth = rect.width * 0.3
+        let glareHeight = rect.height * 0.8
+        
+        let glareRect = NSRect(
+            x: rect.minX + rect.width * 0.1,
+            y: rect.minY + rect.height * 0.1,
+            width: glareWidth,
+            height: glareHeight
+        )
+        
+        // Create diagonal glare gradient
+        let glareGradient = NSGradient(colors: [
+            NSColor.white.withAlphaComponent(0.3),
+            NSColor.white.withAlphaComponent(0.1),
+            NSColor.clear
+        ])
+        
+        // Apply rotation for diagonal effect
+        NSGraphicsContext.current?.saveGraphicsState()
+        
+        let transform = NSAffineTransform()
+        transform.translateX(by: glareRect.midX, yBy: glareRect.midY)
+        transform.rotate(byDegrees: 25)
+        transform.translateX(by: -glareRect.midX, yBy: -glareRect.midY)
+        transform.concat()
+        
+        glareGradient?.draw(in: glareRect, angle: 0)
+        
+        NSGraphicsContext.current?.restoreGraphicsState()
+    }
+    
+    // MARK: - Polaroid Helper Methods
+    
+    private static func drawPolaroidBackground(dominantColor: NSColor, size: NSSize) {
+        // Create a soft gradient background using the dominant color
+        var hue: CGFloat = 0
+        var saturation: CGFloat = 0
+        var brightness: CGFloat = 0
+        var alpha: CGFloat = 0
+        
+        dominantColor.getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha)
+        
+        // Create lighter and darker variants for gradient
+        let lightColor = NSColor(hue: hue, saturation: saturation * 0.3, brightness: min(1.0, brightness + 0.2), alpha: alpha)
+        let darkColor = NSColor(hue: hue, saturation: saturation * 0.6, brightness: max(0.1, brightness - 0.1), alpha: alpha)
+        
+        let gradient = NSGradient(colors: [lightColor, darkColor])
+        let startPoint = NSPoint(x: 0, y: size.height)
+        let endPoint = NSPoint(x: size.width, y: 0)
+        
+        gradient?.draw(from: startPoint, to: endPoint, options: [])
+    }
+    
+    private static func drawHandwrittenText(_ text: String, at point: NSPoint, maxWidth: CGFloat) {
+        // Use a handwritten-style font
+        let fontSize: CGFloat = 24
+        let font = NSFont(name: "Marker Felt", size: fontSize) ?? NSFont.systemFont(ofSize: fontSize, weight: .medium)
+        
+        let paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.alignment = .center
+        
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: NSColor.darkGray,
+            .paragraphStyle: paragraphStyle
+        ]
+        
+        let attributedString = NSAttributedString(string: text, attributes: attributes)
+        let textSize = attributedString.size()
+        
+        let textRect = NSRect(
+            x: point.x - maxWidth / 2,
+            y: point.y - textSize.height / 2,
+            width: maxWidth,
+            height: textSize.height
+        )
+        
+        attributedString.draw(in: textRect)
     }
 }

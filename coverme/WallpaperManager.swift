@@ -204,6 +204,10 @@ final class WallpaperManager: ObservableObject {
             return WallpaperStyleRenderer.createMinimalistWallpaper(image, trackName: track.name, artistName: track.artist, targetSize: screenSize)
         case .pixelatedRetro:
             return WallpaperStyleRenderer.createPixelatedRetroWallpaper(image, targetSize: screenSize)
+        case .polaroidAesthetic:
+            return WallpaperStyleRenderer.createPolaroidAestheticWallpaper(image, trackName: track.name, targetSize: screenSize)
+        case .cdCaseVinyl:
+            return WallpaperStyleRenderer.createCDCaseVinylWallpaper(image, targetSize: screenSize)
         }
     }
     
