@@ -5,29 +5,30 @@
 //  Created by Mukil Chittybabu on 2/8/2025.
 //
 
-import Foundation
 import AppKit
-import SwiftUI
 import CoreGraphics
 import CoreImage
+import Foundation
+import SwiftUI
 
 // MARK: - Advanced Wallpaper Style Implementations
 class WallpaperStyleRenderer {
-    
+
     // MARK: - Blurred Background + Sharp Center Art
     static func createBlurredBackgroundWallpaper(_ image: NSImage, targetSize: NSSize) -> NSImage {
         let newImage = NSImage(size: targetSize)
         newImage.lockFocus()
-        
+
         // Step 1: Create blurred, scaled-up background
         let blurredBackground = createBlurredBackground(image, targetSize: targetSize)
         blurredBackground.draw(in: NSRect(origin: .zero, size: targetSize))
-        
+
         // Step 2: Calculate center art size (about 1/3 of screen width, maintaining aspect ratio)
         let centerArtMaxWidth = targetSize.width * 0.33
         let centerArtMaxHeight = targetSize.height * 0.5
-        let centerArtSize = calculateFitSize(for: image.size, in: NSSize(width: centerArtMaxWidth, height: centerArtMaxHeight))
-        
+        let centerArtSize = calculateFitSize(
+            for: image.size, in: NSSize(width: centerArtMaxWidth, height: centerArtMaxHeight))
+
         // Step 3: Draw drop shadow
         let shadowOffset: CGFloat = 8
         let shadowBlur: CGFloat = 16
@@ -37,9 +38,9 @@ class WallpaperStyleRenderer {
             width: centerArtSize.width,
             height: centerArtSize.height
         )
-        
+
         drawDropShadow(in: shadowRect, offset: shadowOffset, blur: shadowBlur)
-        
+
         // Step 4: Draw the crisp center art with rounded corners
         let centerRect = NSRect(
             x: (targetSize.width - centerArtSize.width) / 2,
@@ -47,26 +48,26 @@ class WallpaperStyleRenderer {
             width: centerArtSize.width,
             height: centerArtSize.height
         )
-        
+
         drawRoundedImage(image, in: centerRect, cornerRadius: 12)
-        
+
         newImage.unlockFocus()
         return newImage
     }
-    
+
     // MARK: - Persistent Grid System for Efficient Collage
     private static var persistentGridState: CollageGridState?
-    
+
     private struct CollageGridState {
         let cols: Int
         let rows: Int
         let cellWidth: CGFloat
         let cellHeight: CGFloat
         let overlapFactor: CGFloat
-        var occupiedPositions: Set<String> // "col,row" format
-        var imagePositions: [ImagePosition] // Track all placed images
+        var occupiedPositions: Set<String>  // "col,row" format
+        var imagePositions: [ImagePosition]  // Track all placed images
         let targetSize: NSSize
-        
+
         struct ImagePosition {
             let col: Int
             let row: Int
@@ -76,9 +77,9 @@ class WallpaperStyleRenderer {
             let width: CGFloat
             let height: CGFloat
             let isCurrentTrack: Bool
-            let imageIndex: Int // Track which image this position corresponds to
+            let imageIndex: Int  // Track which image this position corresponds to
         }
-        
+
         init(targetSize: NSSize) {
             self.cols = 5
             self.rows = 4
@@ -89,7 +90,7 @@ class WallpaperStyleRenderer {
             self.imagePositions = []
             self.targetSize = targetSize
         }
-        
+
         mutating func getNextAvailablePosition() -> (Int, Int)? {
             var availablePositions: [(Int, Int)] = []
             for row in 0..<rows {
@@ -100,22 +101,22 @@ class WallpaperStyleRenderer {
                     }
                 }
             }
-            
+
             guard !availablePositions.isEmpty else { return nil }
             return availablePositions.randomElement()
         }
-        
+
         mutating func addImagePosition(_ position: ImagePosition) {
             let key = "\(position.col),\(position.row)"
             occupiedPositions.insert(key)
             imagePositions.append(position)
         }
-        
+
         mutating func reset() {
             occupiedPositions.removeAll()
             imagePositions.removeAll()
         }
-        
+
         mutating func updateCurrentTrack() {
             // Remove existing current track
             if let currentTrackIndex = imagePositions.firstIndex(where: { $0.isCurrentTrack }) {
@@ -126,42 +127,48 @@ class WallpaperStyleRenderer {
             }
         }
     }
-    
+
     // Public method to reset grid when track changes
     static func resetCollageGrid() {
         persistentGridState?.reset()
         print("[COLLAGE DEBUG] Grid state reset for new session")
     }
-    
-    static func createCollageWallpaper(_ currentImage: NSImage, previousImages: [NSImage], targetSize: NSSize) -> NSImage {
-        print("[COLLAGE DEBUG] Starting efficient photo collage creation with \(previousImages.count) previous images")
+
+    static func createCollageWallpaper(
+        _ currentImage: NSImage, previousImages: [NSImage], targetSize: NSSize
+    ) -> NSImage {
+        print(
+            "[COLLAGE DEBUG] Starting efficient photo collage creation with \(previousImages.count) previous images"
+        )
         print("[COLLAGE DEBUG] Target size: \(targetSize.width)x\(targetSize.height)")
-        
+
         // Initialize or update persistent grid state
         if persistentGridState == nil || persistentGridState!.targetSize != targetSize {
             persistentGridState = CollageGridState(targetSize: targetSize)
             print("[COLLAGE DEBUG] Initialized new grid state")
         }
-        
+
         guard var gridState = persistentGridState else { return currentImage }
-        
+
         let newImage = NSImage(size: targetSize)
         newImage.lockFocus()
-        
+
         // Step 1: Extract dominant colors and create background
         var allImages = [currentImage]
         allImages.append(contentsOf: previousImages)
-        
+
         let backgroundColors = extractOptimalBackgroundColors(from: allImages)
         drawDiagonalGradient(colors: backgroundColors, in: NSRect(origin: .zero, size: targetSize))
         print("[COLLAGE DEBUG] Drew dynamic background gradient")
-        
+
         // Step 2: Define polaroid properties
         let frameThickness: CGFloat = 12
         let bottomFrameExtra: CGFloat = 24
-        
+
         // Step 3: Redraw all existing images from persistent state
-        print("[COLLAGE DEBUG] Redrawing \(gridState.imagePositions.count) existing images from persistent state")
+        print(
+            "[COLLAGE DEBUG] Redrawing \(gridState.imagePositions.count) existing images from persistent state"
+        )
         for imagePos in gridState.imagePositions {
             let frameRect = NSRect(
                 x: imagePos.centerX - imagePos.width / 2,
@@ -169,7 +176,7 @@ class WallpaperStyleRenderer {
                 width: imagePos.width,
                 height: imagePos.height
             )
-            
+
             // Use the correct image based on stored index
             let imageToUse: NSImage
             if imagePos.isCurrentTrack {
@@ -177,42 +184,47 @@ class WallpaperStyleRenderer {
             } else if imagePos.imageIndex < previousImages.count {
                 imageToUse = previousImages[imagePos.imageIndex]
             } else {
-                imageToUse = currentImage // Fallback
+                imageToUse = currentImage  // Fallback
             }
-            drawPolaroidFrame(imageToUse, in: frameRect, rotation: imagePos.rotation, frameThickness: frameThickness, bottomExtra: bottomFrameExtra, isCurrentTrack: imagePos.isCurrentTrack)
+            drawPolaroidFrame(
+                imageToUse, in: frameRect, rotation: imagePos.rotation,
+                frameThickness: frameThickness, bottomExtra: bottomFrameExtra,
+                isCurrentTrack: imagePos.isCurrentTrack)
         }
-        
+
         // Step 4: Add only new images that aren't already placed
         let existingImageCount = gridState.imagePositions.filter { !$0.isCurrentTrack }.count
         let newImagesToAdd = max(0, previousImages.count - existingImageCount)
-        
+
         print("[COLLAGE DEBUG] Adding \(newImagesToAdd) new images to grid")
-        
+
         for i in 0..<newImagesToAdd {
             guard let (col, row) = gridState.getNextAvailablePosition() else {
                 print("[COLLAGE DEBUG] No more available positions")
                 break
             }
-            
+
             let imageIndex = existingImageCount + i
             guard imageIndex < previousImages.count else { break }
-            
+
             let image = previousImages[imageIndex]
-            
+
             // Calculate position
             let baseX = CGFloat(col) * gridState.cellWidth + gridState.cellWidth / 2
             let baseY = CGFloat(row) * gridState.cellHeight + gridState.cellHeight / 2
-            
-            let randomOffsetX = CGFloat.random(in: -gridState.cellWidth * 0.1...gridState.cellWidth * 0.1)
-            let randomOffsetY = CGFloat.random(in: -gridState.cellHeight * 0.1...gridState.cellHeight * 0.1)
-            
+
+            let randomOffsetX = CGFloat.random(
+                in: -gridState.cellWidth * 0.1...gridState.cellWidth * 0.1)
+            let randomOffsetY = CGFloat.random(
+                in: -gridState.cellHeight * 0.1...gridState.cellHeight * 0.1)
+
             let centerX = baseX + randomOffsetX
             let centerY = baseY + randomOffsetY
-            
+
             let polaroidWidth = gridState.cellWidth * (1.1 + gridState.overlapFactor)
             let polaroidHeight = gridState.cellHeight * (1.1 + gridState.overlapFactor)
             let rotation = CGFloat.random(in: -20...20)
-            
+
             // Create and store position
             let imagePosition = CollageGridState.ImagePosition(
                 col: col,
@@ -225,9 +237,9 @@ class WallpaperStyleRenderer {
                 isCurrentTrack: false,
                 imageIndex: imageIndex
             )
-            
+
             gridState.addImagePosition(imagePosition)
-            
+
             // Draw the new image
             let frameRect = NSRect(
                 x: centerX - polaroidWidth / 2,
@@ -235,30 +247,34 @@ class WallpaperStyleRenderer {
                 width: polaroidWidth,
                 height: polaroidHeight
             )
-            
-            print("[COLLAGE DEBUG] Drawing new polaroid at grid (\(col),\(row)) with rotation \(rotation)°")
-            drawPolaroidFrame(image, in: frameRect, rotation: rotation, frameThickness: frameThickness, bottomExtra: bottomFrameExtra)
+
+            print(
+                "[COLLAGE DEBUG] Drawing new polaroid at grid (\(col),\(row)) with rotation \(rotation)°"
+            )
+            drawPolaroidFrame(
+                image, in: frameRect, rotation: rotation, frameThickness: frameThickness,
+                bottomExtra: bottomFrameExtra)
         }
-        
+
         // Step 5: Draw current track in center or prominent position
         let centerCol = gridState.cols / 2
         let centerRow = gridState.rows / 2
         let centerCellX = CGFloat(centerCol) * gridState.cellWidth + gridState.cellWidth / 2
         let centerCellY = CGFloat(centerRow) * gridState.cellHeight + gridState.cellHeight / 2
-        
+
         // Make current track larger and more prominent, scaled for new grid
         let currentPolaroidWidth = gridState.cellWidth * 1.4
         let currentPolaroidHeight = gridState.cellHeight * 1.4
-        
+
         let currentFrameRect = NSRect(
             x: centerCellX - currentPolaroidWidth / 2,
             y: centerCellY - currentPolaroidHeight / 2,
             width: currentPolaroidWidth,
             height: currentPolaroidHeight
         )
-        
+
         print("[COLLAGE DEBUG] Drawing current track polaroid at center")
-        
+
         // Add current track to persistent state if not already there
         let hasCurrentTrack = gridState.imagePositions.contains { $0.isCurrentTrack }
         if !hasCurrentTrack {
@@ -271,192 +287,205 @@ class WallpaperStyleRenderer {
                 width: currentPolaroidWidth,
                 height: currentPolaroidHeight,
                 isCurrentTrack: true,
-                imageIndex: -1 // Special index for current track
+                imageIndex: -1  // Special index for current track
             )
             gridState.addImagePosition(currentTrackPosition)
         }
-        
+
         // Draw current track with no rotation and extra glow
-        drawPolaroidFrame(currentImage, in: currentFrameRect, rotation: 0, frameThickness: frameThickness * 1.5, bottomExtra: bottomFrameExtra * 1.5, isCurrentTrack: true)
-        
+        drawPolaroidFrame(
+            currentImage, in: currentFrameRect, rotation: 0, frameThickness: frameThickness * 1.5,
+            bottomExtra: bottomFrameExtra * 1.5, isCurrentTrack: true)
+
         // Update persistent state
         persistentGridState = gridState
-        
-        print("[COLLAGE DEBUG] Photo collage creation completed successfully with \(gridState.imagePositions.count) total images")
-        
+
+        print(
+            "[COLLAGE DEBUG] Photo collage creation completed successfully with \(gridState.imagePositions.count) total images"
+        )
+
         newImage.unlockFocus()
         return newImage
     }
-    
+
     // MARK: - Gradient from Album Colors
     static func createGradientWallpaper(_ image: NSImage, targetSize: NSSize) -> NSImage {
         let newImage = NSImage(size: targetSize)
         newImage.lockFocus()
-        
+
         // Step 1: Extract two dominant colors from the album art
         let dominantColors = extractDominantColors(from: image)
-        
+
         // Step 2: Create gradient background (diagonal)
         drawDiagonalGradient(colors: dominantColors, in: NSRect(origin: .zero, size: targetSize))
-        
+
         // Step 3: Calculate album art size (slightly smaller, about 25% of screen width)
         let artMaxWidth = targetSize.width * 0.25
         let artMaxHeight = targetSize.height * 0.4
-        let artSize = calculateFitSize(for: image.size, in: NSSize(width: artMaxWidth, height: artMaxHeight))
-        
+        let artSize = calculateFitSize(
+            for: image.size, in: NSSize(width: artMaxWidth, height: artMaxHeight))
+
         // Step 4: Position album art (slightly off-center for dynamic feel)
-        let offsetX = targetSize.width * 0.1 // 10% offset from center
+        let offsetX = targetSize.width * 0.1  // 10% offset from center
         let artRect = NSRect(
             x: (targetSize.width - artSize.width) / 2 + offsetX,
             y: (targetSize.height - artSize.height) / 2,
             width: artSize.width,
             height: artSize.height
         )
-        
+
         // Step 5: Draw drop shadow
         let shadowOffset: CGFloat = 6
         let shadowBlur: CGFloat = 12
         drawDropShadow(in: artRect, offset: shadowOffset, blur: shadowBlur)
-        
+
         // Step 6: Draw the album art with rounded corners
         drawRoundedImage(image, in: artRect, cornerRadius: 8)
-        
+
         newImage.unlockFocus()
         return newImage
     }
-    
+
     // MARK: - CD Case / Vinyl Sleeve Look
     static func createCDCaseVinylWallpaper(_ image: NSImage, targetSize: NSSize) -> NSImage {
         let canvas = NSImage(size: targetSize)
-        
+
         canvas.lockFocus()
         defer { canvas.unlockFocus() }
-        
+
         // Draw textured black gradient background
         drawTexturedBackground(size: targetSize)
-        
-        // Calculate CD case dimensions (standard CD case is roughly 5.5" x 4.9")
-        let caseWidth = min(targetSize.width * 0.4, targetSize.height * 0.5)
-        let caseHeight = caseWidth * 0.89 // CD case aspect ratio
-        
-        // Position case slightly off-center with perspective
-        let centerX = targetSize.width / 2 + 20
-        let centerY = targetSize.height / 2
-        let rotationAngle: CGFloat = -8.0 // Degrees for 3D perspective
-        
-        // Save graphics state for transformations
+
+        // Extract dominant colors from album art for vinyl effects
+        let dominantColors = extractDominantColors(from: image)
+
+        // Calculate dimensions (scaled up)
+        let boxWidth = min(targetSize.width * 0.7, targetSize.height * 0.75)
+        let boxHeight = boxWidth * 1.0  // Square box
+        let vinylRadius = boxWidth * 0.5  // Larger vinyl size
+
+        // Position elements
+        let boxCenterX = targetSize.width / 2 - 40
+        let boxCenterY = targetSize.height / 2
+        let vinylCenterX = boxCenterX + boxWidth * 0.35  // Vinyl peeks out to the right
+        let vinylCenterY = boxCenterY
+
         let context = NSGraphicsContext.current?.cgContext
         context?.saveGState()
-        
-        // Apply perspective transformation
-        context?.translateBy(x: centerX, y: centerY)
-        context?.rotate(by: rotationAngle * .pi / 180)
-        context?.translateBy(x: -centerX, y: -centerY)
-        
-        // Draw shadow first
-        let shadowOffset = NSSize(width: 12, height: -12)
-        let shadowColor = NSColor.black.withAlphaComponent(0.4)
-        
+
+        // Draw vinyl record first (behind the box)
+        drawVinylRecord(
+            at: NSPoint(x: vinylCenterX, y: vinylCenterY),
+            radius: vinylRadius,
+            colors: dominantColors,
+            albumArt: image)
+
+        // Draw box shadow
+        let shadowOffset = NSSize(width: 8, height: -8)
+        let shadowColor = NSColor.black.withAlphaComponent(0.3)
         let shadowRect = NSRect(
-            x: centerX - caseWidth / 2 + shadowOffset.width,
-            y: centerY - caseHeight / 2 + shadowOffset.height,
-            width: caseWidth,
-            height: caseHeight
+            x: boxCenterX - boxWidth / 2 + shadowOffset.width,
+            y: boxCenterY - boxHeight / 2 + shadowOffset.height,
+            width: boxWidth,
+            height: boxHeight
         )
-        
         shadowColor.setFill()
-        let shadowPath = NSBezierPath(roundedRect: shadowRect, xRadius: 4, yRadius: 4)
-        shadowPath.fill()
-        
-        // Draw CD case back (dark plastic)
-        let caseRect = NSRect(
-            x: centerX - caseWidth / 2,
-            y: centerY - caseHeight / 2,
-            width: caseWidth,
-            height: caseHeight
+        let shadowPath = NSBezierPath(roundedRect: shadowRect, xRadius: 6, yRadius: 6)
+        // shadowPath.fill()
+
+        // Draw box/case
+        let boxRect = NSRect(
+            x: boxCenterX - boxWidth / 2,
+            y: boxCenterY - boxHeight / 2,
+            width: boxWidth,
+            height: boxHeight
         )
-        
-        let caseColor = NSColor(red: 0.1, green: 0.1, blue: 0.1, alpha: 0.9)
-        caseColor.setFill()
-        let casePath = NSBezierPath(roundedRect: caseRect, xRadius: 4, yRadius: 4)
-        casePath.fill()
-        
-        // Draw album art (slightly inset)
-        let artInset: CGFloat = 8
+
+        // Box gradient (dark to lighter)
+        let boxGradient = NSGradient(colors: [
+            NSColor(red: 0.08, green: 0.08, blue: 0.08, alpha: 1.0),
+            NSColor(red: 0.15, green: 0.15, blue: 0.15, alpha: 1.0),
+        ])
+        let boxPath = NSBezierPath(roundedRect: boxRect, xRadius: 6, yRadius: 6)
+        boxGradient?.draw(in: boxPath, angle: 45)
+
+        // Draw album art on the box
+        let artInset: CGFloat = 0  // idk if i should have a inset or not...
         let artRect = NSRect(
-            x: caseRect.minX + artInset,
-            y: caseRect.minY + artInset,
-            width: caseRect.width - (artInset * 2),
-            height: caseRect.height - (artInset * 2)
+            x: boxRect.minX + artInset,
+            y: boxRect.minY + artInset,
+            width: boxRect.width - (artInset * 2),
+            height: boxRect.height - (artInset * 2)
         )
-        
-        // Apply album art with slight rounded corners
-        let artPath = NSBezierPath(roundedRect: artRect, xRadius: 2, yRadius: 2)
+
+        let artPath = NSBezierPath(roundedRect: artRect, xRadius: 4, yRadius: 4)
         artPath.addClip()
         image.draw(in: artRect, from: NSRect.zero, operation: .sourceOver, fraction: 1.0)
-        
-        // Apply plastic effect overlay
-        applyPlasticEffect(to: caseRect)
-        
-        // Add reflection glare
-        addReflectionGlare(to: caseRect)
-        
-        // Restore graphics state
+
+        // Reset clipping
         context?.restoreGState()
-        
+        context?.saveGState()
+
+        // Add box highlights and depth
+        addBoxHighlights(to: boxRect)
+
+        context?.restoreGState()
+
         return canvas
     }
-    
+
     // MARK: - Polaroid Aesthetic
-    static func createPolaroidAestheticWallpaper(_ image: NSImage, trackName: String, targetSize: NSSize) -> NSImage {
+    static func createPolaroidAestheticWallpaper(
+        _ image: NSImage, trackName: String, targetSize: NSSize
+    ) -> NSImage {
         let canvas = NSImage(size: targetSize)
-        
+
         canvas.lockFocus()
         defer { canvas.unlockFocus() }
-        
+
         // Extract dominant color from album art
         let dominantColors = extractDominantColors(from: image)
         let dominantColor = dominantColors.first ?? NSColor.systemGray
-        
+
         // Draw background with dominant color gradient
         drawPolaroidBackground(dominantColor: dominantColor, size: targetSize)
-        
+
         // Calculate Polaroid dimensions (roughly 4:3 aspect ratio with white border)
         let polaroidWidth = min(targetSize.width * 0.6, targetSize.height * 0.7)
-        let polaroidHeight = polaroidWidth * 1.2 // Slightly taller for bottom text area
+        let polaroidHeight = polaroidWidth * 1.2  // Slightly taller for bottom text area
         let photoWidth = polaroidWidth * 0.85
-        let photoHeight = photoWidth // Square photo area
-        
+        let photoHeight = photoWidth  // Square photo area
+
         // Position with slight tilt and offset
         let centerX = targetSize.width / 2
         let centerY = targetSize.height / 2
-        let tiltAngle: CGFloat = -3.0 // Degrees
-        
+        let tiltAngle: CGFloat = -3.0  // Degrees
+
         // Save graphics state for rotation
         let context = NSGraphicsContext.current?.cgContext
         context?.saveGState()
-        
+
         // Apply rotation around center
         context?.translateBy(x: centerX, y: centerY)
         context?.rotate(by: tiltAngle * .pi / 180)
         context?.translateBy(x: -centerX, y: -centerY)
-        
+
         // Draw shadow first
         let shadowOffset = NSSize(width: 8, height: -8)
         let shadowBlur: CGFloat = 15
         let shadowColor = NSColor.black.withAlphaComponent(0.3)
-        
+
         let polaroidRect = NSRect(
             x: centerX - polaroidWidth / 2 + shadowOffset.width,
             y: centerY - polaroidHeight / 2 + shadowOffset.height,
             width: polaroidWidth,
             height: polaroidHeight
         )
-        
+
         shadowColor.setFill()
         let shadowPath = NSBezierPath(roundedRect: polaroidRect, xRadius: 8, yRadius: 8)
         shadowPath.fill()
-        
+
         // Draw white Polaroid frame
         let frameRect = NSRect(
             x: centerX - polaroidWidth / 2,
@@ -464,51 +493,53 @@ class WallpaperStyleRenderer {
             width: polaroidWidth,
             height: polaroidHeight
         )
-        
+
         NSColor.white.setFill()
         let framePath = NSBezierPath(roundedRect: frameRect, xRadius: 8, yRadius: 8)
         framePath.fill()
-        
+
         // Draw photo area
         let photoRect = NSRect(
             x: centerX - photoWidth / 2,
-            y: centerY - photoHeight / 2 + polaroidHeight * 0.1, // Offset up for text space
+            y: centerY - photoHeight / 2 + polaroidHeight * 0.1,  // Offset up for text space
             width: photoWidth,
             height: photoHeight
         )
-        
+
         // Draw album art in photo area
         image.draw(in: photoRect, from: NSRect.zero, operation: .sourceOver, fraction: 1.0)
-        
+
         // Draw handwritten-style text
         let textY = photoRect.minY - 40
         drawHandwrittenText(trackName, at: NSPoint(x: centerX, y: textY), maxWidth: photoWidth)
-        
+
         // Restore graphics state
         context?.restoreGState()
-        
+
         return canvas
     }
-    
+
     // MARK: - Pixelated Retro Mode
     static func createPixelatedRetroWallpaper(_ image: NSImage, targetSize: NSSize) -> NSImage {
         let newImage = NSImage(size: targetSize)
         newImage.lockFocus()
-        
+
         // Step 1: Extract dominant colors for retro gradient background
         let dominantColors = extractDominantColors(from: image)
-        
+
         // Step 2: Create retro-style gradient background with multiple color stops
-        drawRetroGradientBackground(colors: dominantColors, in: NSRect(origin: .zero, size: targetSize))
-        
+        drawRetroGradientBackground(
+            colors: dominantColors, in: NSRect(origin: .zero, size: targetSize))
+
         // Step 3: Create pixelated version of album art
         let pixelatedImage = createPixelatedImage(image, pixelSize: 8)
-        
+
         // Step 4: Calculate album art size (larger for retro aesthetic)
         let artMaxWidth = targetSize.width * 0.4
         let artMaxHeight = targetSize.height * 0.6
-        let artSize = calculateFitSize(for: pixelatedImage.size, in: NSSize(width: artMaxWidth, height: artMaxHeight))
-        
+        let artSize = calculateFitSize(
+            for: pixelatedImage.size, in: NSSize(width: artMaxWidth, height: artMaxHeight))
+
         // Step 5: Position album art in center
         let artRect = NSRect(
             x: (targetSize.width - artSize.width) / 2,
@@ -516,37 +547,39 @@ class WallpaperStyleRenderer {
             width: artSize.width,
             height: artSize.height
         )
-        
+
         // Step 6: Draw retro-style border/frame around the pixelated art
         drawRetroFrame(in: artRect, borderWidth: 8)
-        
+
         // Step 7: Draw the pixelated album art
         drawRoundedImage(pixelatedImage, in: artRect, cornerRadius: 4)
-        
+
         // Step 8: Add retro scanline effect overlay
         drawScanlineEffect(in: NSRect(origin: .zero, size: targetSize))
-        
+
         newImage.unlockFocus()
         return newImage
     }
-    
+
     // MARK: - Minimalist Art Mode
-    static func createMinimalistWallpaper(_ image: NSImage, trackName: String, artistName: String, targetSize: NSSize) -> NSImage {
+    static func createMinimalistWallpaper(
+        _ image: NSImage, trackName: String, artistName: String, targetSize: NSSize
+    ) -> NSImage {
         let newImage = NSImage(size: targetSize)
         newImage.lockFocus()
-        
+
         // Step 1: Extract dominant color for solid background
         let dominantColors = extractDominantColors(from: image)
         let backgroundColor = dominantColors.first ?? NSColor.systemGray
-        
+
         // Step 2: Fill background with dominant color
         backgroundColor.setFill()
         NSRect(origin: .zero, size: targetSize).fill()
-        
+
         // Step 3: Calculate typography layout
         let centerX = targetSize.width / 2
         let centerY = targetSize.height / 2
-        
+
         // Step 4: Draw track name (large, bold, centered)
         let trackFont = NSFont.systemFont(ofSize: min(targetSize.width * 0.08, 72), weight: .bold)
         let trackAttributes: [NSAttributedString.Key: Any] = [
@@ -556,9 +589,9 @@ class WallpaperStyleRenderer {
                 let style = NSMutableParagraphStyle()
                 style.alignment = .center
                 return style
-            }()
+            }(),
         ]
-        
+
         let trackString = NSAttributedString(string: trackName, attributes: trackAttributes)
         let trackSize = trackString.size()
         let trackRect = NSRect(
@@ -568,9 +601,10 @@ class WallpaperStyleRenderer {
             height: trackSize.height
         )
         trackString.draw(in: trackRect)
-        
+
         // Step 5: Draw artist name (smaller, below track name)
-        let artistFont = NSFont.systemFont(ofSize: min(targetSize.width * 0.04, 36), weight: .medium)
+        let artistFont = NSFont.systemFont(
+            ofSize: min(targetSize.width * 0.04, 36), weight: .medium)
         let artistAttributes: [NSAttributedString.Key: Any] = [
             .font: artistFont,
             .foregroundColor: getContrastingTextColor(for: backgroundColor).withAlphaComponent(0.8),
@@ -578,9 +612,9 @@ class WallpaperStyleRenderer {
                 let style = NSMutableParagraphStyle()
                 style.alignment = .center
                 return style
-            }()
+            }(),
         ]
-        
+
         let artistString = NSAttributedString(string: artistName, attributes: artistAttributes)
         let artistSize = artistString.size()
         let artistRect = NSRect(
@@ -590,7 +624,7 @@ class WallpaperStyleRenderer {
             height: artistSize.height
         )
         artistString.draw(in: artistRect)
-        
+
         // Step 6: Draw small album art thumbnail in bottom right
         let thumbnailSize: CGFloat = min(targetSize.width * 0.12, 120)
         let thumbnailRect = NSRect(
@@ -599,44 +633,50 @@ class WallpaperStyleRenderer {
             width: thumbnailSize,
             height: thumbnailSize
         )
-        
+
         // Add subtle shadow to thumbnail
         drawDropShadow(in: thumbnailRect, offset: 4, blur: 8)
-        
+
         // Draw thumbnail with rounded corners
         drawRoundedImage(image, in: thumbnailRect, cornerRadius: 8)
-        
+
         newImage.unlockFocus()
         return newImage
     }
-    
+
     // MARK: - Helper Methods
-    
-    private static func isPositionInCenterArea(_ position: CGPoint, size: CGFloat, targetSize: NSSize) -> Bool {
+
+    private static func isPositionInCenterArea(
+        _ position: CGPoint, size: CGFloat, targetSize: NSSize
+    ) -> Bool {
         // Define center area to avoid (larger than the current track size)
         let centerAreaSize = min(targetSize.width * 0.35, targetSize.height * 0.5)
         let centerX = (targetSize.width - centerAreaSize) / 2
         let centerY = (targetSize.height - centerAreaSize) / 2
-        let centerArea = NSRect(x: centerX, y: centerY, width: centerAreaSize, height: centerAreaSize)
-        
+        let centerArea = NSRect(
+            x: centerX, y: centerY, width: centerAreaSize, height: centerAreaSize)
+
         let imageRect = NSRect(x: position.x, y: position.y, width: size, height: size)
         return centerArea.intersects(imageRect)
     }
-    
-    private static func drawPolaroidFrame(_ image: NSImage, in rect: NSRect, rotation: CGFloat, frameThickness: CGFloat, bottomExtra: CGFloat, isCurrentTrack: Bool = false) {
+
+    private static func drawPolaroidFrame(
+        _ image: NSImage, in rect: NSRect, rotation: CGFloat, frameThickness: CGFloat,
+        bottomExtra: CGFloat, isCurrentTrack: Bool = false
+    ) {
         NSGraphicsContext.current?.saveGraphicsState()
-        
+
         // Calculate rotation center
         let centerX = rect.midX
         let centerY = rect.midY
-        
+
         // Apply rotation transform
         let transform = NSAffineTransform()
         transform.translateX(by: centerX, yBy: centerY)
         transform.rotate(byDegrees: rotation)
         transform.translateX(by: -centerX, yBy: -centerY)
         transform.concat()
-        
+
         // Draw shadow for the entire polaroid
         let shadowContext = NSGraphicsContext.current?.cgContext
         let shadowOffset: CGFloat = isCurrentTrack ? 8 : 4
@@ -646,13 +686,13 @@ class WallpaperStyleRenderer {
             blur: shadowBlur,
             color: NSColor.black.withAlphaComponent(isCurrentTrack ? 0.4 : 0.25).cgColor
         )
-        
+
         // Draw white polaroid frame background
         let frameRect = rect
         let framePath = NSBezierPath(roundedRect: frameRect, xRadius: 4, yRadius: 4)
         NSColor.white.setFill()
         framePath.fill()
-        
+
         // Calculate image area (inside the frame)
         let imageRect = NSRect(
             x: rect.minX + frameThickness,
@@ -660,47 +700,51 @@ class WallpaperStyleRenderer {
             width: rect.width - (frameThickness * 2),
             height: rect.height - (frameThickness * 2) - bottomExtra
         )
-        
+
         // Create clipping path for the image area
         let imageClipPath = NSBezierPath(roundedRect: imageRect, xRadius: 2, yRadius: 2)
         imageClipPath.addClip()
-        
+
         // Draw the image inside the frame
         image.draw(in: imageRect)
-        
+
         // Add subtle aging effect if not current track
         if !isCurrentTrack {
             NSColor.systemYellow.withAlphaComponent(0.05).setFill()
             let overlayPath = NSBezierPath(roundedRect: imageRect, xRadius: 2, yRadius: 2)
             overlayPath.fill()
         }
-        
+
         // Add extra glow for current track
         if isCurrentTrack {
             NSGraphicsContext.current?.saveGraphicsState()
-            let glowPath = NSBezierPath(roundedRect: frameRect.insetBy(dx: -6, dy: -6), xRadius: 8, yRadius: 8)
+            let glowPath = NSBezierPath(
+                roundedRect: frameRect.insetBy(dx: -6, dy: -6), xRadius: 8, yRadius: 8)
             NSColor.white.withAlphaComponent(0.2).setFill()
             glowPath.fill()
             NSGraphicsContext.current?.restoreGraphicsState()
         }
-        
+
         NSGraphicsContext.current?.restoreGraphicsState()
     }
-    
-    private static func drawRotatedImageWithShadow(_ image: NSImage, in rect: NSRect, rotation: CGFloat, cornerRadius: CGFloat, shadowOffset: CGFloat, shadowBlur: CGFloat) {
+
+    private static func drawRotatedImageWithShadow(
+        _ image: NSImage, in rect: NSRect, rotation: CGFloat, cornerRadius: CGFloat,
+        shadowOffset: CGFloat, shadowBlur: CGFloat
+    ) {
         NSGraphicsContext.current?.saveGraphicsState()
-        
+
         // Calculate rotation center
         let centerX = rect.midX
         let centerY = rect.midY
-        
+
         // Apply rotation transform
         let transform = NSAffineTransform()
         transform.translateX(by: centerX, yBy: centerY)
         transform.rotate(byDegrees: rotation)
         transform.translateX(by: -centerX, yBy: -centerY)
         transform.concat()
-        
+
         // Draw shadow first
         let shadowContext = NSGraphicsContext.current?.cgContext
         shadowContext?.setShadow(
@@ -708,48 +752,50 @@ class WallpaperStyleRenderer {
             blur: shadowBlur,
             color: NSColor.black.withAlphaComponent(0.3).cgColor
         )
-        
+
         // Create clipping path for rounded corners
-        let clippingPath = NSBezierPath(roundedRect: rect, xRadius: cornerRadius, yRadius: cornerRadius)
+        let clippingPath = NSBezierPath(
+            roundedRect: rect, xRadius: cornerRadius, yRadius: cornerRadius)
         clippingPath.addClip()
-        
+
         // Draw the image
         image.draw(in: rect)
-        
+
         NSGraphicsContext.current?.restoreGraphicsState()
     }
-    
+
     private static func createBlurredBackground(_ image: NSImage, targetSize: NSSize) -> NSImage {
         // Create a scaled version that covers the entire screen
         let scaledImage = scaleImageToCover(image, targetSize: targetSize)
-        
+
         // Apply blur using Core Image
         guard let tiffData = scaledImage.tiffRepresentation,
-              let ciImage = CIImage(data: tiffData) else {
+            let ciImage = CIImage(data: tiffData)
+        else {
             return scaledImage
         }
-        
+
         let blurFilter = CIFilter(name: "CIGaussianBlur")!
         blurFilter.setValue(ciImage, forKey: kCIInputImageKey)
-        blurFilter.setValue(25.0, forKey: kCIInputRadiusKey) // Blur radius
-        
+        blurFilter.setValue(25.0, forKey: kCIInputRadiusKey)  // Blur radius
+
         guard let blurredCIImage = blurFilter.outputImage else {
             return scaledImage
         }
-        
+
         // Convert back to NSImage
         let context = CIContext()
         let cgImage = context.createCGImage(blurredCIImage, from: blurredCIImage.extent)!
         let blurredImage = NSImage(cgImage: cgImage, size: targetSize)
-        
+
         return blurredImage
     }
-    
+
     private static func scaleImageToCover(_ image: NSImage, targetSize: NSSize) -> NSImage {
         let imageSize = image.size
         let targetAspect = targetSize.width / targetSize.height
         let imageAspect = imageSize.width / imageSize.height
-        
+
         var newSize: NSSize
         if imageAspect > targetAspect {
             // Image is wider than target - scale by height
@@ -758,27 +804,28 @@ class WallpaperStyleRenderer {
             // Image is taller than target - scale by width
             newSize = NSSize(width: targetSize.width, height: targetSize.width / imageAspect)
         }
-        
+
         let scaledImage = NSImage(size: targetSize)
         scaledImage.lockFocus()
-        
+
         let drawRect = NSRect(
             x: (targetSize.width - newSize.width) / 2,
             y: (targetSize.height - newSize.height) / 2,
             width: newSize.width,
             height: newSize.height
         )
-        
+
         image.draw(in: drawRect)
         scaledImage.unlockFocus()
-        
+
         return scaledImage
     }
-    
-    private static func calculateFitSize(for imageSize: NSSize, in containerSize: NSSize) -> NSSize {
+
+    private static func calculateFitSize(for imageSize: NSSize, in containerSize: NSSize) -> NSSize
+    {
         let imageAspect = imageSize.width / imageSize.height
         let containerAspect = containerSize.width / containerSize.height
-        
+
         if imageAspect > containerAspect {
             // Image is wider - fit by width
             let width = containerSize.width
@@ -791,78 +838,85 @@ class WallpaperStyleRenderer {
             return NSSize(width: width, height: height)
         }
     }
-    
+
     private static func drawDropShadow(in rect: NSRect, offset: CGFloat, blur: CGFloat) {
         let shadowContext = NSGraphicsContext.current?.cgContext
         shadowContext?.saveGState()
-        
+
         // Set shadow properties
-        shadowContext?.setShadow(offset: CGSize(width: 0, height: -offset), blur: blur, color: NSColor.black.withAlphaComponent(0.3).cgColor)
-        
+        shadowContext?.setShadow(
+            offset: CGSize(width: 0, height: -offset), blur: blur,
+            color: NSColor.black.withAlphaComponent(0.3).cgColor)
+
         // Draw a rounded rectangle for the shadow
         let shadowPath = NSBezierPath(roundedRect: rect, xRadius: 12, yRadius: 12)
         NSColor.black.setFill()
         shadowPath.fill()
-        
+
         shadowContext?.restoreGState()
     }
-    
+
     private static func drawRoundedImage(_ image: NSImage, in rect: NSRect, cornerRadius: CGFloat) {
         // Save the current graphics state
         NSGraphicsContext.current?.saveGraphicsState()
-        
+
         // Apply clipping path
-        let clippingPath = NSBezierPath(roundedRect: rect, xRadius: cornerRadius, yRadius: cornerRadius)
+        let clippingPath = NSBezierPath(
+            roundedRect: rect, xRadius: cornerRadius, yRadius: cornerRadius)
         clippingPath.addClip()
-        
+
         // Draw the image
         image.draw(in: rect)
-        
+
         // Restore the graphics state (removes the clipping path)
         NSGraphicsContext.current?.restoreGraphicsState()
     }
-    
+
     // MARK: - Color Extraction and Gradient Methods
-    
+
     private static func extractDominantColors(from image: NSImage) -> [NSColor] {
         // Convert NSImage to CGImage for color analysis
         guard let tiffData = image.tiffRepresentation,
-              let imageRep = NSBitmapImageRep(data: tiffData),
-              let cgImage = imageRep.cgImage else {
+            let imageRep = NSBitmapImageRep(data: tiffData),
+            let cgImage = imageRep.cgImage
+        else {
             // Fallback colors if extraction fails
             return [NSColor.systemBlue, NSColor.systemPurple]
         }
-        
+
         // Use smaller sampling size for memory optimization (100x100 is sufficient for color analysis)
         let sampleSize = 100
         let _originalWidth = cgImage.width
         let _originalHeight = cgImage.height
-        
+
         // Create smaller context for sampling
         let colorSpace = CGColorSpaceCreateDeviceRGB()
         let bytesPerPixel = 4
         let bytesPerRow = bytesPerPixel * sampleSize
         let bitsPerComponent = 8
-        
+
         var pixelData = [UInt8](repeating: 0, count: sampleSize * sampleSize * bytesPerPixel)
-        
-        guard let context = CGContext(data: &pixelData,
-                                    width: sampleSize,
-                                    height: sampleSize,
-                                    bitsPerComponent: bitsPerComponent,
-                                    bytesPerRow: bytesPerRow,
-                                    space: colorSpace,
-                                    bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else {
+
+        guard
+            let context = CGContext(
+                data: &pixelData,
+                width: sampleSize,
+                height: sampleSize,
+                bitsPerComponent: bitsPerComponent,
+                bytesPerRow: bytesPerRow,
+                space: colorSpace,
+                bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)
+        else {
             return [NSColor.systemBlue, NSColor.systemPurple]
         }
-        
+
         // Draw scaled down image for sampling
         context.draw(cgImage, in: CGRect(x: 0, y: 0, width: sampleSize, height: sampleSize))
-        
+
         // Sample colors from different regions with reduced resolution
         var colorCounts: [String: Int] = [:]
-        let sampleStep = max(1, sampleSize / 20) // Sample every 20th pixel
-        
+        let sampleStep = max(1, sampleSize / 20)  // Sample every 20th pixel
+
         for y in stride(from: 0, to: sampleSize, by: sampleStep) {
             for x in stride(from: 0, to: sampleSize, by: sampleStep) {
                 let pixelIndex = (y * sampleSize + x) * bytesPerPixel
@@ -870,37 +924,39 @@ class WallpaperStyleRenderer {
                     let r = pixelData[pixelIndex]
                     let g = pixelData[pixelIndex + 1]
                     let b = pixelData[pixelIndex + 2]
-                    
+
                     // Group similar colors (reduce precision for clustering)
                     let colorKey = "\(r/32*32)-\(g/32*32)-\(b/32*32)"
                     colorCounts[colorKey, default: 0] += 1
                 }
             }
         }
-        
+
         // Get the two most common colors
         let sortedColors = colorCounts.sorted { $0.value > $1.value }
         var dominantColors: [NSColor] = []
-        
+
         for (colorKey, _) in sortedColors.prefix(2) {
             let components = colorKey.split(separator: "-").compactMap { Int($0) }
             if components.count == 3 {
-                let color = NSColor(red: CGFloat(components[0])/255.0,
-                                  green: CGFloat(components[1])/255.0,
-                                  blue: CGFloat(components[2])/255.0,
-                                  alpha: 1.0)
+                let color = NSColor(
+                    red: CGFloat(components[0]) / 255.0,
+                    green: CGFloat(components[1]) / 255.0,
+                    blue: CGFloat(components[2]) / 255.0,
+                    alpha: 1.0)
                 dominantColors.append(color)
             }
         }
-        
+
         // Ensure we have at least 2 colors
         while dominantColors.count < 2 {
-            dominantColors.append(dominantColors.isEmpty ? NSColor.systemBlue : NSColor.systemPurple)
+            dominantColors.append(
+                dominantColors.isEmpty ? NSColor.systemBlue : NSColor.systemPurple)
         }
-        
+
         return Array(dominantColors.prefix(2))
     }
-    
+
     private static func averageHue(_ hues: [CGFloat]) -> CGFloat {
         var sumX: CGFloat = 0
         var sumY: CGFloat = 0
@@ -913,7 +969,7 @@ class WallpaperStyleRenderer {
         let positiveθ = avgθ < 0 ? avgθ + 2 * .pi : avgθ
         return positiveθ / (2 * .pi)
     }
-    
+
     private static func extractOptimalBackgroundColors(from images: [NSImage]) -> [NSColor] {
         guard !images.isEmpty else {
             // Fallback to warm peachy colors if no images
@@ -921,31 +977,32 @@ class WallpaperStyleRenderer {
             let peachColor2 = NSColor(red: 0.95, green: 0.8, blue: 0.65, alpha: 1.0)
             return [peachColor1, peachColor2]
         }
-        
+
         // Collect all hue, saturation, brightness values with weighting
         var allHues = [CGFloat]()
         var allSaturations = [CGFloat]()
         var allBrightnesses = [CGFloat]()
-        
+
         // Process each image with memory management
         return autoreleasepool {
             // Process each image, with the first image (current track) getting higher weight
             for (index, image) in images.enumerated() {
                 autoreleasepool {
                     let dominantColors = extractDominantColors(from: image)
-                    let topColors = Array(dominantColors.prefix(2)) // Take top 2 colors from each
-                    
+                    let topColors = Array(dominantColors.prefix(2))  // Take top 2 colors from each
+
                     // Weight the current track (first image) 3x more than previous tracks
                     let weight = index == 0 ? 5 : 1
-                    
+
                     for color in topColors {
                         var hue: CGFloat = 0
                         var saturation: CGFloat = 0
                         var brightness: CGFloat = 0
                         var alpha: CGFloat = 0
-                        
-                        color.getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha)
-                        
+
+                        color.getHue(
+                            &hue, saturation: &saturation, brightness: &brightness, alpha: &alpha)
+
                         // Add the color values multiple times based on weight
                         for _ in 0..<weight {
                             allHues.append(hue)
@@ -955,147 +1012,161 @@ class WallpaperStyleRenderer {
                     }
                 }
             }
-        
-            print("[COLLAGE DEBUG] Extracted weighted colors from \(images.count) images (current track weighted 3x)")
-            
+
+            print(
+                "[COLLAGE DEBUG] Extracted weighted colors from \(images.count) images (current track weighted 3x)"
+            )
+
             // If we have colors, analyze them to create a harmonious background
             if !allHues.isEmpty {
                 // Properly average hue as circular data
                 let avgHue = averageHue(allHues)
-                
+
                 // Average saturation/brightness with softer constraints
                 let rawSaturation = allSaturations.reduce(0, +) / CGFloat(allSaturations.count)
                 let rawBrightness = allBrightnesses.reduce(0, +) / CGFloat(allBrightnesses.count)
-                let avgSaturation = min(max(rawSaturation, 0.2), 0.6) // Allow richer range
-                let avgBrightness = min(max(rawBrightness, 0.7), 0.9) // Keep backgrounds bright but not blinding
-                
+                let avgSaturation = min(max(rawSaturation, 0.2), 0.6)  // Allow richer range
+                let avgBrightness = min(max(rawBrightness, 0.7), 0.9)  // Keep backgrounds bright but not blinding
+
                 // Pick two harmonious hues; analogous ±30° (±0.0833)
                 let hue1 = avgHue
                 let hue2 = fmod(avgHue + 0.0833, 1.0)
-                
-                let color1 = NSColor(hue: hue1, saturation: avgSaturation, brightness: avgBrightness, alpha: 1.0)
-                let color2 = NSColor(hue: hue2, saturation: avgSaturation, brightness: avgBrightness, alpha: 1.0)
-                
+
+                let color1 = NSColor(
+                    hue: hue1, saturation: avgSaturation, brightness: avgBrightness, alpha: 1.0)
+                let color2 = NSColor(
+                    hue: hue2, saturation: avgSaturation, brightness: avgBrightness, alpha: 1.0)
+
                 print("[COLLAGE DEBUG] Created background colors: \(color1), \(color2)")
-                
+
                 return [color1, color2]
             }
-            
+
             // Fallback to warm peachy colors if no colors extracted, everyone likes peaches!
             let peachColor1 = NSColor(red: 1.0, green: 0.85, blue: 0.7, alpha: 1.0)
             let peachColor2 = NSColor(red: 0.95, green: 0.8, blue: 0.65, alpha: 1.0)
             return [peachColor1, peachColor2]
         }
     }
-    
+
     private static func drawDiagonalGradient(colors: [NSColor], in rect: NSRect) {
         guard colors.count >= 2 else { return }
-        
+
         let gradient = NSGradient(colors: colors)
-        let startPoint = NSPoint(x: rect.minX, y: rect.maxY) // Top-left
-        let endPoint = NSPoint(x: rect.maxX, y: rect.minY)   // Bottom-right
-        
+        let startPoint = NSPoint(x: rect.minX, y: rect.maxY)  // Top-left
+        let endPoint = NSPoint(x: rect.maxX, y: rect.minY)  // Bottom-right
+
         gradient?.draw(from: startPoint, to: endPoint, options: [])
     }
-    
+
     private static func getContrastingTextColor(for backgroundColor: NSColor) -> NSColor {
         // Convert to RGB color space if needed
         guard let rgbColor = backgroundColor.usingColorSpace(.deviceRGB) else {
             return NSColor.white
         }
-        
+
         // Calculate luminance using the standard formula
         let red = rgbColor.redComponent
         let green = rgbColor.greenComponent
         let blue = rgbColor.blueComponent
-        
+
         let luminance = 0.299 * red + 0.587 * green + 0.114 * blue
-        
+
         // Return white text for dark backgrounds, black text for light backgrounds
         return luminance < 0.5 ? NSColor.white : NSColor.black
     }
-    
+
     // MARK: - Pixelated Retro Helper Methods
-    
+
     private static func createPixelatedImage(_ image: NSImage, pixelSize: Int) -> NSImage {
         guard let tiffData = image.tiffRepresentation,
-              let imageRep = NSBitmapImageRep(data: tiffData),
-              let cgImage = imageRep.cgImage else {
+            let imageRep = NSBitmapImageRep(data: tiffData),
+            let cgImage = imageRep.cgImage
+        else {
             return image
         }
-        
+
         let originalWidth = cgImage.width
         let originalHeight = cgImage.height
-        
+
         // Calculate pixelated dimensions
         let pixelatedWidth = max(1, originalWidth / pixelSize)
         let pixelatedHeight = max(1, originalHeight / pixelSize)
-        
+
         // Create small pixelated version
         let colorSpace = CGColorSpaceCreateDeviceRGB()
-        guard let context = CGContext(data: nil,
-                                    width: pixelatedWidth,
-                                    height: pixelatedHeight,
-                                    bitsPerComponent: 8,
-                                    bytesPerRow: 0,
-                                    space: colorSpace,
-                                    bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else {
+        guard
+            let context = CGContext(
+                data: nil,
+                width: pixelatedWidth,
+                height: pixelatedHeight,
+                bitsPerComponent: 8,
+                bytesPerRow: 0,
+                space: colorSpace,
+                bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)
+        else {
             return image
         }
-        
+
         // Draw scaled down image (pixelated)
-        context.interpolationQuality = .none // Disable smoothing for pixelated effect
-        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: pixelatedWidth, height: pixelatedHeight))
-        
+        context.interpolationQuality = .none  // Disable smoothing for pixelated effect
+        context.draw(
+            cgImage, in: CGRect(x: 0, y: 0, width: pixelatedWidth, height: pixelatedHeight))
+
         guard let pixelatedCGImage = context.makeImage() else {
             return image
         }
-        
+
         // Scale back up to original size with no interpolation
-        guard let upscaleContext = CGContext(data: nil,
-                                           width: originalWidth,
-                                           height: originalHeight,
-                                           bitsPerComponent: 8,
-                                           bytesPerRow: 0,
-                                           space: colorSpace,
-                                           bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else {
+        guard
+            let upscaleContext = CGContext(
+                data: nil,
+                width: originalWidth,
+                height: originalHeight,
+                bitsPerComponent: 8,
+                bytesPerRow: 0,
+                space: colorSpace,
+                bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)
+        else {
             return NSImage(cgImage: pixelatedCGImage, size: image.size)
         }
-        
-        upscaleContext.interpolationQuality = .none // Keep pixelated look
-        upscaleContext.draw(pixelatedCGImage, in: CGRect(x: 0, y: 0, width: originalWidth, height: originalHeight))
-        
+
+        upscaleContext.interpolationQuality = .none  // Keep pixelated look
+        upscaleContext.draw(
+            pixelatedCGImage, in: CGRect(x: 0, y: 0, width: originalWidth, height: originalHeight))
+
         guard let finalCGImage = upscaleContext.makeImage() else {
             return NSImage(cgImage: pixelatedCGImage, size: image.size)
         }
-        
+
         return NSImage(cgImage: finalCGImage, size: image.size)
     }
-    
+
     private static func drawRetroGradientBackground(colors: [NSColor], in rect: NSRect) {
         guard colors.count >= 2 else { return }
-        
+
         // Create a retro-style radial gradient with enhanced colors
         let enhancedColors = colors.map { color -> NSColor in
             var hue: CGFloat = 0
             var saturation: CGFloat = 0
             var brightness: CGFloat = 0
             var alpha: CGFloat = 0
-            
+
             color.getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha)
-            
+
             // Enhance saturation and adjust brightness for retro feel
             let retroSaturation = min(1.0, saturation * 1.3)
             let retroBrightness = max(0.3, min(0.8, brightness * 0.9))
-            
-            return NSColor(hue: hue, saturation: retroSaturation, brightness: retroBrightness, alpha: alpha)
+
+            return NSColor(
+                hue: hue, saturation: retroSaturation, brightness: retroBrightness, alpha: alpha)
         }
-        
+
         // Create multi-stop gradient for retro effect
         var gradientColors: [NSColor] = []
         gradientColors.append(enhancedColors[0])
         gradientColors.append(enhancedColors[1])
-        
+
         // Add a third color for more retro feel
         if enhancedColors.count > 2 {
             gradientColors.append(enhancedColors[2])
@@ -1105,58 +1176,62 @@ class WallpaperStyleRenderer {
             var saturation: CGFloat = 0
             var brightness: CGFloat = 0
             var alpha: CGFloat = 0
-            
-            enhancedColors[0].getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha)
+
+            enhancedColors[0].getHue(
+                &hue, saturation: &saturation, brightness: &brightness, alpha: &alpha)
             let complementaryHue = fmod(hue + 0.5, 1.0)
-            let complementaryColor = NSColor(hue: complementaryHue, saturation: saturation * 0.8, brightness: brightness * 1.1, alpha: alpha)
+            let complementaryColor = NSColor(
+                hue: complementaryHue, saturation: saturation * 0.8, brightness: brightness * 1.1,
+                alpha: alpha)
             gradientColors.append(complementaryColor)
         }
-        
+
         let gradient = NSGradient(colors: gradientColors)
         let centerPoint = NSPoint(x: rect.midX, y: rect.midY)
         let radius = max(rect.width, rect.height) * 0.7
-        
-        gradient?.draw(fromCenter: centerPoint, radius: 0, toCenter: centerPoint, radius: radius, options: [])
+
+        gradient?.draw(
+            fromCenter: centerPoint, radius: 0, toCenter: centerPoint, radius: radius, options: [])
     }
-    
+
     private static func drawRetroFrame(in rect: NSRect, borderWidth: CGFloat) {
         // Draw outer retro-style frame with gradient border
         let outerRect = rect.insetBy(dx: -borderWidth, dy: -borderWidth)
-        
+
         // Create retro border colors (bright neon-like)
-        let borderColor1 = NSColor(red: 1.0, green: 0.2, blue: 0.8, alpha: 0.8) // Hot pink
-        let borderColor2 = NSColor(red: 0.2, green: 0.8, blue: 1.0, alpha: 0.8) // Cyan
-        
+        let borderColor1 = NSColor(red: 1.0, green: 0.2, blue: 0.8, alpha: 0.8)  // Hot pink
+        let borderColor2 = NSColor(red: 0.2, green: 0.8, blue: 1.0, alpha: 0.8)  // Cyan
+
         let borderGradient = NSGradient(colors: [borderColor1, borderColor2])
         let borderPath = NSBezierPath(roundedRect: outerRect, xRadius: 8, yRadius: 8)
-        
+
         borderGradient?.draw(in: borderPath, angle: 45)
-        
+
         // Draw inner black border for contrast
         let innerBorderRect = rect.insetBy(dx: -2, dy: -2)
         let innerBorderPath = NSBezierPath(roundedRect: innerBorderRect, xRadius: 6, yRadius: 6)
         NSColor.black.withAlphaComponent(0.8).setFill()
         innerBorderPath.fill()
     }
-    
+
     private static func drawScanlineEffect(in rect: NSRect) {
         // Draw horizontal scanlines for retro CRT effect
         let scanlineSpacing: CGFloat = 4
         let scanlineAlpha: CGFloat = 0.1
-        
+
         NSColor.black.withAlphaComponent(scanlineAlpha).setFill()
-        
+
         var y: CGFloat = rect.minY
         while y < rect.maxY {
             let scanlineRect = NSRect(x: rect.minX, y: y, width: rect.width, height: 2)
             scanlineRect.fill()
             y += scanlineSpacing
         }
-        
+
         // Add subtle vertical scanlines too
         let verticalSpacing: CGFloat = 8
         NSColor.black.withAlphaComponent(scanlineAlpha * 0.5).setFill()
-        
+
         var x: CGFloat = rect.minX
         while x < rect.maxX {
             let verticalLineRect = NSRect(x: x, y: rect.minY, width: 1, height: rect.height)
@@ -1164,133 +1239,378 @@ class WallpaperStyleRenderer {
             x += verticalSpacing
         }
     }
-    
+
     // MARK: - CD Case / Vinyl Helper Methods
-    
+
     private static func drawTexturedBackground(size: NSSize) {
         // Create dark gradient background with texture
         let darkColor1 = NSColor(red: 0.05, green: 0.05, blue: 0.05, alpha: 1.0)
         let darkColor2 = NSColor(red: 0.15, green: 0.15, blue: 0.15, alpha: 1.0)
-        
+
         let gradient = NSGradient(colors: [darkColor1, darkColor2])
         let startPoint = NSPoint(x: 0, y: size.height)
         let endPoint = NSPoint(x: size.width, y: 0)
-        
+
         gradient?.draw(from: startPoint, to: endPoint, options: [])
-        
+
         // Add subtle noise texture
         addNoiseTexture(to: NSRect(origin: .zero, size: size))
     }
-    
+
     private static func addNoiseTexture(to rect: NSRect) {
         // Create subtle noise pattern
         let noiseColor = NSColor.white.withAlphaComponent(0.02)
         noiseColor.setFill()
-        
+
         // Draw random small rectangles for texture
         for _ in 0..<200 {
             let x = CGFloat.random(in: rect.minX...rect.maxX)
             let y = CGFloat.random(in: rect.minY...rect.maxY)
             let size = CGFloat.random(in: 1...3)
-            
+
             let noiseRect = NSRect(x: x, y: y, width: size, height: size)
             noiseRect.fill()
         }
     }
-    
+
     private static func applyPlasticEffect(to rect: NSRect) {
         // Create transparent plastic overlay effect
         let plasticGradient = NSGradient(colors: [
             NSColor.white.withAlphaComponent(0.1),
             NSColor.clear,
-            NSColor.black.withAlphaComponent(0.05)
+            NSColor.black.withAlphaComponent(0.05),
         ])
-        
+
         let startPoint = NSPoint(x: rect.minX, y: rect.maxY)
         let endPoint = NSPoint(x: rect.maxX, y: rect.minY)
-        
+
         plasticGradient?.draw(from: startPoint, to: endPoint, options: [])
     }
-    
+
     private static func addReflectionGlare(to rect: NSRect) {
         // Add diagonal reflection glare
         let glareWidth = rect.width * 0.3
         let glareHeight = rect.height * 0.8
-        
+
         let glareRect = NSRect(
             x: rect.minX + rect.width * 0.1,
             y: rect.minY + rect.height * 0.1,
             width: glareWidth,
             height: glareHeight
         )
-        
+
         // Create diagonal glare gradient
         let glareGradient = NSGradient(colors: [
             NSColor.white.withAlphaComponent(0.3),
             NSColor.white.withAlphaComponent(0.1),
-            NSColor.clear
+            NSColor.clear,
         ])
-        
+
         // Apply rotation for diagonal effect
         NSGraphicsContext.current?.saveGraphicsState()
-        
+
         let transform = NSAffineTransform()
         transform.translateX(by: glareRect.midX, yBy: glareRect.midY)
         transform.rotate(byDegrees: 25)
         transform.translateX(by: -glareRect.midX, yBy: -glareRect.midY)
         transform.concat()
-        
+
         glareGradient?.draw(in: glareRect, angle: 0)
-        
+
         NSGraphicsContext.current?.restoreGraphicsState()
     }
-    
+
     // MARK: - Polaroid Helper Methods
-    
+
     private static func drawPolaroidBackground(dominantColor: NSColor, size: NSSize) {
         // Create a soft gradient background using the dominant color
         var hue: CGFloat = 0
         var saturation: CGFloat = 0
         var brightness: CGFloat = 0
         var alpha: CGFloat = 0
-        
+
         dominantColor.getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha)
-        
+
         // Create lighter and darker variants for gradient
-        let lightColor = NSColor(hue: hue, saturation: saturation * 0.3, brightness: min(1.0, brightness + 0.2), alpha: alpha)
-        let darkColor = NSColor(hue: hue, saturation: saturation * 0.6, brightness: max(0.1, brightness - 0.1), alpha: alpha)
-        
+        let lightColor = NSColor(
+            hue: hue, saturation: saturation * 0.3, brightness: min(1.0, brightness + 0.2),
+            alpha: alpha)
+        let darkColor = NSColor(
+            hue: hue, saturation: saturation * 0.6, brightness: max(0.1, brightness - 0.1),
+            alpha: alpha)
+
         let gradient = NSGradient(colors: [lightColor, darkColor])
         let startPoint = NSPoint(x: 0, y: size.height)
         let endPoint = NSPoint(x: size.width, y: 0)
-        
+
         gradient?.draw(from: startPoint, to: endPoint, options: [])
     }
-    
+
     private static func drawHandwrittenText(_ text: String, at point: NSPoint, maxWidth: CGFloat) {
         // Use a handwritten-style font
         let fontSize: CGFloat = 24
-        let font = NSFont(name: "Marker Felt", size: fontSize) ?? NSFont.systemFont(ofSize: fontSize, weight: .medium)
-        
+        let font =
+            NSFont(name: "Marker Felt", size: fontSize)
+            ?? NSFont.systemFont(ofSize: fontSize, weight: .medium)
+
         let paragraphStyle = NSMutableParagraphStyle()
         paragraphStyle.alignment = .center
-        
+
         let attributes: [NSAttributedString.Key: Any] = [
             .font: font,
             .foregroundColor: NSColor.darkGray,
-            .paragraphStyle: paragraphStyle
+            .paragraphStyle: paragraphStyle,
         ]
-        
+
         let attributedString = NSAttributedString(string: text, attributes: attributes)
         let textSize = attributedString.size()
-        
+
         let textRect = NSRect(
             x: point.x - maxWidth / 2,
             y: point.y - textSize.height / 2,
             width: maxWidth,
             height: textSize.height
         )
-        
+
         attributedString.draw(in: textRect)
+    }
+
+    private static func drawVinylRecord(
+        at center: NSPoint,
+        radius: CGFloat,
+        colors: [NSColor],
+        albumArt: NSImage
+    ) {
+        guard let context = NSGraphicsContext.current?.cgContext else { return }
+
+        // 1. Compute your two base “vinyl” colours
+        let vinylColors: [NSColor] = {
+            if colors.count >= 2 {
+                return [
+                    colors[0].blended(withFraction: 0.4, of: .black) ?? .black,
+                    colors[1].blended(withFraction: 0.3, of: .black) ?? .black,
+                ]
+            } else if let first = colors.first {
+                return [
+                    first.blended(withFraction: 0.4, of: .black) ?? .black,
+                    first.blended(withFraction: 0.3, of: .black) ?? .black,
+                ]
+            } else {
+                return [.black, NSColor(white: 0.2, alpha: 1)]
+            }
+        }()
+
+        // 2. Clip to your record circle
+        let vinylRect = CGRect(
+            x: center.x - radius,
+            y: center.y - radius,
+            width: radius * 2,
+            height: radius * 2
+        )
+        context.saveGState()
+        context.addEllipse(in: vinylRect)
+        context.clip()
+
+        // 3. Build a CoreImage pipeline for the marble
+        let ciContext = CIContext(cgContext: context, options: nil)
+        let size = CGSize(width: vinylRect.width, height: vinylRect.height)
+        let extent = CGRect(origin: .zero, size: size)
+
+        // 3a) radial gradient base
+        let radial = CIFilter(name: "CIRadialGradient")!
+        radial.setValue(CIVector(x: size.width / 2, y: size.height / 2), forKey: "inputCenter")
+        radial.setValue(radius * 0.2, forKey: "inputRadius0")
+        radial.setValue(radius, forKey: "inputRadius1")
+        radial.setValue(CIColor(color: vinylColors[0]), forKey: "inputColor0")
+        radial.setValue(CIColor(color: vinylColors[1]), forKey: "inputColor1")
+        guard
+            let baseCI = radial
+                .outputImage?
+                .cropped(to: extent)
+        else {
+            context.restoreGState()
+            return
+        }
+
+        // 3b) generate and blur some noise
+        let noise = CIFilter(name: "CIRandomGenerator")!
+        guard
+            let noiseCI = noise
+                .outputImage?
+                .cropped(to: extent)
+        else {
+            context.restoreGState()
+            return
+        }
+        let blur = CIFilter(name: "CIGaussianBlur")!
+        blur.setValue(noiseCI, forKey: kCIInputImageKey)
+        blur.setValue(radius * 0.05, forKey: kCIInputRadiusKey)
+        guard
+            let blurredNoise = blur
+                .outputImage?
+                .cropped(to: extent)
+        else {
+            context.restoreGState()
+            return
+        }
+
+        // 3c) displace the gradient with that noise → marble veins
+        let disp = CIFilter(name: "CIDisplacementDistortion")!
+        disp.setValue(baseCI, forKey: kCIInputImageKey)
+        disp.setValue(blurredNoise, forKey: "inputDisplacementImage")
+        disp.setValue(radius * 0.08, forKey: "inputScale")
+        guard
+            let marbleCI = disp
+                .outputImage?
+                .cropped(to: extent),
+            let marbleCG = ciContext.createCGImage(marbleCI, from: extent)
+        else {
+            context.restoreGState()
+            return
+        }
+
+        // 3d) draw it
+        context.draw(marbleCG, in: vinylRect)
+        context.restoreGState()
+
+        // 4. Draw subtle grooves
+        context.saveGState()
+        NSColor.black.withAlphaComponent(0.2).setStroke()
+        for t in stride(from: 0.3, through: 0.9, by: 0.15) {
+            let r = radius * CGFloat(t)
+            let path = NSBezierPath(
+                ovalIn: CGRect(
+                    x: center.x - r,
+                    y: center.y - r,
+                    width: r * 2,
+                    height: r * 2
+                )
+            )
+            path.lineWidth = 0.3
+            path.stroke()
+        }
+        context.restoreGState()
+
+        // 5. Draw centre label & mini-album-art
+        let labelRadius = radius * 0.2
+        let labelRect = CGRect(
+            x: center.x - labelRadius,
+            y: center.y - labelRadius,
+            width: labelRadius * 2,
+            height: labelRadius * 2
+        )
+        // label background
+        let labelTint =
+            (colors.first ?? .white)
+            .blended(withFraction: 0.9, of: .white) ?? .white
+        let labelGrad = NSGradient(colors: [
+            labelTint,
+            labelTint.blended(withFraction: 0.1, of: .gray) ?? labelTint,
+        ])!
+        let labelPath = NSBezierPath(ovalIn: labelRect)
+        labelGrad.draw(in: labelPath, relativeCenterPosition: .zero)
+
+        // mini art
+        context.saveGState()
+        let inset: CGFloat = 3
+        let artRect = labelRect.insetBy(dx: inset, dy: inset)
+        let artPath = NSBezierPath(ovalIn: artRect)
+        artPath.addClip()
+        albumArt.draw(
+            in: artRect,
+            from: .zero,
+            operation: .sourceOver,
+            fraction: 0.9
+        )
+        context.restoreGState()
+
+        // 6. Add a gentle vinyl‐shine
+        let shine = NSGradient(colors: [
+            NSColor.white.withAlphaComponent(0),
+            NSColor.white.withAlphaComponent(0.2),
+            NSColor.white.withAlphaComponent(0),
+        ])!
+        context.saveGState()
+        let shineRect = CGRect(
+            x: center.x - radius * 0.4,
+            y: center.y - radius,
+            width: radius * 0.8,
+            height: radius * 2
+        )
+        context.addEllipse(in: vinylRect)
+        context.clip()
+        shine.draw(in: shineRect, angle: 45)
+        context.restoreGState()
+    }
+
+    private static func addBoxHighlights(to rect: NSRect) {
+        let context = NSGraphicsContext.current?.cgContext
+        context?.saveGState()
+
+        // Top highlight
+        let topHighlight = NSGradient(colors: [
+            NSColor.white.withAlphaComponent(0.1),
+            NSColor.white.withAlphaComponent(0.0),
+        ])
+
+        let topRect = NSRect(
+            x: rect.minX,
+            y: rect.maxY - 20,
+            width: rect.width,
+            height: 20
+        )
+
+        let topPath = NSBezierPath(roundedRect: topRect, xRadius: 6, yRadius: 6)
+        topHighlight?.draw(in: topPath, angle: 270)
+
+        // Left highlight
+        let leftHighlight = NSGradient(colors: [
+            NSColor.white.withAlphaComponent(0.05),
+            NSColor.white.withAlphaComponent(0.0),
+        ])
+
+        let leftRect = NSRect(
+            x: rect.minX,
+            y: rect.minY,
+            width: 15,
+            height: rect.height
+        )
+
+        let leftPath = NSBezierPath(roundedRect: leftRect, xRadius: 6, yRadius: 6)
+        leftHighlight?.draw(in: leftPath, angle: 0)
+
+        // Bottom shadow
+        let bottomShadow = NSGradient(colors: [
+            NSColor.black.withAlphaComponent(0.0),
+            NSColor.black.withAlphaComponent(0.1),
+        ])
+
+        let bottomRect = NSRect(
+            x: rect.minX,
+            y: rect.minY,
+            width: rect.width,
+            height: 15
+        )
+
+        let bottomPath = NSBezierPath(roundedRect: bottomRect, xRadius: 6, yRadius: 6)
+        bottomShadow?.draw(in: bottomPath, angle: 90)
+
+        context?.restoreGState()
+    }
+
+    private static func enhanceColorVibrancy(_ color: NSColor) -> NSColor {
+        var hue: CGFloat = 0
+        var saturation: CGFloat = 0
+        var brightness: CGFloat = 0
+        var alpha: CGFloat = 0
+
+        color.getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha)
+
+        // Enhance saturation and adjust brightness for more vibrant colors
+        let enhancedSaturation = min(1.0, saturation * 1.4)
+        let enhancedBrightness = max(0.3, min(0.9, brightness * 1.2))
+
+        return NSColor(
+            hue: hue, saturation: enhancedSaturation, brightness: enhancedBrightness, alpha: alpha)
     }
 }
