@@ -16,9 +16,9 @@ class SpotifyManager: ObservableObject {
     @Published var currentTrack: SpotifyTrack?
     @Published var authenticationError: String?
 
-    // Placeholder values - user will replace these
-    private let clientID = "YOUR_SPOTIFY_CLIENT_ID"        // Replace with your Client ID
-    private let clientSecret = "YOUR_SPOTIFY_CLIENT_SECRET"  // Replace with your Client Secret 
+    // Load from environment variables
+    private let clientID: String
+    private let clientSecret: String
     private let redirectURI = "spotifywallpaper://callback"
     private let scopes = "user-read-currently-playing"
 
@@ -38,6 +38,14 @@ class SpotifyManager: ObservableObject {
 
     init() {
         print("[SpotifyManager] Initializing SpotifyManager...")
+        
+        // Load Spotify credentials from environment variables
+        self.clientID = ProcessInfo.processInfo.environment["SPOTIFY_CLIENT_ID"] ?? "YOUR_SPOTIFY_CLIENT_ID"
+        self.clientSecret = ProcessInfo.processInfo.environment["SPOTIFY_CLIENT_SECRET"] ?? "YOUR_SPOTIFY_CLIENT_SECRET"
+        
+        print("[SpotifyManager] Loaded clientID: \(clientID.prefix(10))...")
+        print("[SpotifyManager] Loaded clientSecret: \(clientSecret.prefix(10))...")
+        
         loadTokensFromKeychain()
         checkAuthenticationStatus()
         print("[SpotifyManager] Initialization complete. isAuthenticated: \(isAuthenticated)")
